@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cmath>
 #include <vector>
 #include <string>
 #include <fstream>
@@ -26,12 +27,63 @@ double vector_sum(const vector<double>& input){
     return result;
 }
 
+vector<double> gaussian_elimination(const vector< vector<double> >& coefficient,const vector<double>& argument){
+    vector<double> ans(coefficient.size(),0.0);
+    vector< vector<double> > associated = coefficient;
+    for(int i=0;i<coefficient.size();++i)
+        associated[i].push_back(argument[i]);
+
+    //gaussian elimination
+    int n = coefficient.size();
+    for(int i=0; i<n ; i++) {
+
+        // Search for maximum in this column
+        double maxEl = std::abs(associated[i][i]);
+        int maxRow = i;
+        for (int k=i+1; k<n; k++) {
+            if (std::abs(associated[k][i]) > maxEl) {
+                maxEl = std::abs(associated[k][i]);
+                maxRow = k;
+            }
+        }
+
+        // Swap maximum row with current row (column by column)
+        for (int k=i; k<n+1;k++) {
+            double tmp = associated[maxRow][k];
+            associated[maxRow][k] = associated[i][k];
+            associated[i][k] = tmp;
+        }
+
+        // Make all rows below this one 0 in current column
+        for (int k=i+1; k<n; k++) {
+            double c = -associated[k][i]/associated[i][i];
+            for (int j=i; j<n+1; j++) {
+                if (i==j) {
+                    associated[k][j] = 0;
+                } else {
+                    associated[k][j] += c * associated[i][j];
+                }
+            }
+        }
+    }
+
+    // Solve equation Ax=b for an upper triangular matrix associated
+    for (int i=n-1; i>=0; i--) {
+        ans[i] = associated[i][n]/associated[i][i];
+        for (int k=i-1;k>=0; k--) {
+            associated[k][n] -= associated[k][i] * ans[i];
+        }
+    }
+    return ans;
+}
+
 int main(void){
     vector< vector<double> > train_x;
     vector<double> train_t;
     vector< vector< vector<double> > > weight_m2_tmp;
     vector< vector<double> > weight_m2;
     vector<double> tar_m2;
+    vector<double> weight_val;
 
     //load train_x
     fstream in_train_x("train.txt",fstream::in);
@@ -101,12 +153,12 @@ int main(void){
     }
     //do the multiply-2-things
     for(int i=0;i<15;++i){
-        weight_m2[i][7] *= 2;
-        weight_m2[i][8] *= 2;
-        weight_m2[i][9] *= 2;
-        weight_m2[i][11] *= 2;
-        weight_m2[i][12] *= 2;
-        weight_m2[i][14] *= 2;
+        weight_m2[i][6]  *= 2.0;
+        weight_m2[i][7]  *= 2.0;
+        weight_m2[i][8]  *= 2.0;
+        weight_m2[i][10] *= 2.0;
+        weight_m2[i][11] *= 2.0;
+        weight_m2[i][13] *= 2.0;
     }
     //init tar_m2
     tar_m2.resize(15,0.0);
@@ -115,6 +167,51 @@ int main(void){
         tar_m2[i] = vector_sum( weight_m2_tmp[0][i] * train_t );
     }
 
+    //compute weight_val by Gaussian elimination
+    weight_val = gaussian_elimination(weight_m2,tar_m2);
 
+    cout << "computing done!" <<endl;
+
+    //output all the things
+    //output weight_m2
+    fstream out_weight_m2("Weight_m2.txt",fstream::out);
+    if(!out_weight_m2.is_open()){
+        cerr << "***** ERROR : cannot open Weight_m2.txt to write *****" <<endl;
+        exit(-1);
+    }
+    out_weight_m2.precision(12);
+    for(int i=0;i<15;++i){
+        for(int j=0;j<15;++j){
+            out_weight_m2 << fixed << weight_m2[i][j] << "\t";
+        }
+        out_weight_m2 <<endl;
+    }
+    out_weight_m2.close();
+
+    //output tar_m2
+    fstream out_tar_m2("Tar_m2.txt",fstream::out);
+    if(!out_tar_m2.is_open()){
+        cerr << "***** ERROR : cannot open Tar_m2.txt to write *****" <<endl;
+        exit(-1);
+    }
+    out_tar_m2.precision(12);
+    for(int i=0;i<tar_m2.size();++i){
+        out_tar_m2 << fixed << tar_m2[i] << endl;
+    }
+    out_tar_m2.close();
+
+    //output weight_value.txt
+    fstream out_weight_val("weight_val.txt",fstream::out);
+    if(!out_weight_val.is_open()){
+        cerr << "***** ERROR : cannot open weight_val.txt to write *****" <<endl;
+        exit(-1);
+    }
+    out_weight_val.precision(16);
+    for(int i=0;i<weight_val.size();++i){
+        out_weight_val << fixed << weight_val[i] << endl;
+    }
+    out_weight_val.close();
+
+    cout << "output done!" <<endl;
     return 0;
 }
